@@ -12,6 +12,11 @@ a temporal consistency check mitigate that effect?
 
 ## Status
 
+The current implementation milestone is CloseFridge residual control. See
+[residual setup and validation](docs/residual.md) for the frozen SmolVLA wrapper,
+SB3 TD3 smoke command, validation status, and the current research scope. The
+tracking-fault protocol below is historical and is not the active research plan.
+
 Project initialization only. This repository includes an experiment protocol,
 configuration validator, deterministic synthetic position-fault generator, and
 tests. **It does not yet run a robot, load a VLA, or train TD3. No experimental

@@ -9,5 +9,8 @@ description = "Experiment scaffolding for residual VLA control under tracking fa
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+residual = ["stable-baselines3==2.7.0", "gymnasium>=1.1.1,<1.3"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
