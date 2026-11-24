@@ -1,106 +1,160 @@
-# CloseFridge residual milestone
+# Active study and reproducible commands
 
-The active study compares frozen SmolVLA, nominal residual TD3, and physically
-randomized residual TD3 under held-out lighting, texture, friction, and hinge
-resistance changes. OpenFridge, OpenCabinet, and dish placement into a sink are
-all required. CloseFridge is the first implementation task. This change does not
-implement randomization or the remaining tasks, and does not revise the study
-plan. The older tracking-fault documents/configuration are historical scaffolding.
+## What is trained
 
-## Implemented contract
+`lerobot/smolvla_robocasa` is already pretrained. Inference episodes do not train it.
+Its weights remain frozen; TD3 learns six bounded corrections to action indices
+5:11. Base motion, control mode, and gripper stay under SmolVLA control. The
+default correction scale is 0.1. This limited authority constrains recoverable failures.
 
-- SmolVLA runs in eval/inference mode with gradients disabled on every parameter.
-- The learner has six normalized actions, scaled by 0.1 by default, affecting
-  only indices 5:11. Base motion, control mode, and gripper remain exact copies.
-- Arm corrections are bounded and respect action limits when the base is within
-  them. An already out-of-range VLA action remains unchanged at zero residual;
-  corrections cannot extend its excursion or exceed the scale. There is no
-  global clipping that could silently change the baseline.
-- Learner observation: 16 robot proprioceptive values, 12 current pending VLA
-  actions, and one normalized actual chunk position (29 float32 values).
-- Simulator door state is read only by the reward provider. Images stay on the
-  VLA path; neither images nor privileged state enter SB3 replay observations.
-- The wrapper enforces its horizon and returns the next pending VLA action even
-  on timeouts, without auto-resetting. SB3's normal VecEnv/replay path handles
-  terminal observations and timeout bootstrapping. No standalone replay buffer.
+The default 59-value residual input contains 16 proprioceptive values, 12 pending
+VLA actions, chunk position, and 30 ground-truth fridge geometry values. Legacy
+29-input models require `--observation-mode proprio`; they cannot be loaded as
+59-input models. Object state is privileged simulation data, not estimated vision.
 
-Training reward is `5 * (previous_mean_openness - current_mean_openness)` plus
-`10 * is_success`, minus `0.001 * squared_norm(executed_arm_correction)`.
-Normalized fridge-only door state comes from the fixture's `get_joint_state`,
-which handles different ranges and reversed hinge directions. Reopening gives
-negative progress; no motion gives zero progress. Success remains the upstream
-all-doors-closed predicate. Freezer doors are excluded. Reward components and the
-original sparse reward are logged in step info. This shaping is not asserted to
-preserve the optimal discounted policy; it also provides no reaching gradient
-before door movement. Baseline competence remains unestablished (two saved
-single-episode failures).
+Reward is 5 times signed normalized door-closing progress plus 10 for native
+success, minus 0.05 times squared executed correction (the runner's existing
+factory default). It offers little reaching guidance before door motion. Success
+remains the upstream predicate requiring all relevant fridge doors closed.
+Reopening is penalized; timeout is failure. The 900-step CloseFridge horizon
+matches the local RoboCasa registry. Short smoke horizons are not task evaluations.
 
-## Commands
+## Checkpoint and task evidence
 
-Run in PowerShell from the project root using the existing GPU environment:
+Cached checkpoint revision: `f7af588d11e30b0069f200792fb285904b74c80b`.
+Its train_config names `lerobot/robocasa_target_human_unified`. Dataset task
+metadata at revision `8e9ca9d` was inspected directly on 2026-11-23:
+https://huggingface.co/datasets/lerobot/robocasa_target_human_unified/tree/8e9ca9d/meta
+
+The task strings are class-name labels, so `CloseFridge` is the correct default
+language contract, not the environment's longer natural-language description.
+`--instruction` is an explicit experimental override. Coverage includes
+CloseFridge, SlideDishwasherRack, LoadDishwasher, and RecycleBottlesByType, but
+does not include CloseDishwasher. Coverage does not establish competence.
+Local source contains CloseDishwasher, but no trash-lid task was found.
+Rack sliding and bottle sorting are approved candidate extensions, still requiring
+task-specific observations, rewards, live validation, and native success checks.
+Rack direction varies by episode; sorting requires correct clusters, table contact,
+and gripper withdrawal. A fridge-angle reward must not be reused for these tasks.
+
+## Run from the active PyCharm repository
 
 ```powershell
+Set-Location 'C:\Users\Joshua\PycharmProjects\VLA-RL'
 $python = 'C:\Users\Joshua\miniconda3\envs\vla-rl\python.exe'
-& $python -m pip install 'stable-baselines3==2.7.0'
 & $python -m unittest discover -s tests -v
-& $python scripts/train_residual.py --mode reward-check --output runs/reward-check
-& $python scripts/train_residual.py --mode zero-check --steps 8 --horizon 8 --output runs/zero-check
-& $python scripts/train_residual.py --mode train --steps 64 --horizon 32 --output runs/td3-smoke
+& $python scripts/train_residual.py --mode reward-check --output runs/reward-new
+& $python scripts/train_residual.py --mode zero-check --steps 60 --horizon 900 --output runs/zero-live-new
+& $python scripts/train_residual.py --mode zero-check --zero-policy-images recorded --steps 60 --horizon 900 --output runs/zero-recorded-new
 ```
 
-The smoke runner uses CUDA for SmolVLA and TD3, a 10,000-transition CPU replay
-buffer, batch size 8, and a small MLP. Its actor starts at zero correction; warmup
-actions and exploration noise still produce bounded nonzero corrections. It
-checks that optimizer updates occurred, actor parameters changed, SmolVLA stayed
-frozen, and rewards were finite. It saves a TD3 model, monitor CSV, and report.
-These short-run hyperparameters are integration settings, not study settings.
-Each invocation should have its own output directory. No build step is required.
-The validated environment uses SB3 2.7.0, Gymnasium 1.2.3, and Matplotlib 3.11.2.
-Installing SB3 replaced Gymnasium 1.4.0 with the compatible 1.2.3 release.
-The pre-existing RoboCasa 1.0.1 pin to LeRobot 0.3.3 conflicts with the installed
-editable LeRobot 0.7.1. The local integration passes the checks below; neither
-downloaded source checkout was replaced to resolve that metadata conflict.
+The live zero-check requires exact images, actions, and observed dynamics. A
+recorded-image check feeds the original trajectory images to the second policy
+pass while still comparing live dynamics and recording live camera differences.
+It isolates wrapper equivalence and MUST NOT be called end-to-end equivalence.
+Both checks retain strict action, qpos, proprioception, sparse reward, and success
+assertions. Camera mismatches save NPZ evidence. No pixel tolerance is assumed.
 
-Checkpoint loading is offline by default and uses the existing Hugging Face
-cache. Supply `--checkpoint <snapshot-directory>` if needed. Download checkpoint
-dependencies with the existing baseline launcher first if the cache is incomplete.
-The camera map matches that launcher. `--project-root` supports validating a staged
-copy against existing downloaded libraries without modifying their source files.
+Reproducible repeated frozen baseline (same initialization, crossed policy seeds,
+and identical-seed reruns):
 
-`zero-check` compares seeded direct frozen-policy and zero-residual trajectories:
-pending and executed actions, qpos, proprioception, camera hashes, sparse reward,
-and success. It fails on reset nondeterminism rather than silently relaxing the
-equivalence assertion. `reward-check` temporarily sets actual fridge door joints
-to open, half-open, and closed positions, checks normalization and the upstream
-success predicate, stationary progress and reopening, and restores qpos. Run
-these before longer training. Explicitly seeded resets seed Python and legacy
-NumPy RNGs as well as RoboCasa's kitchen RNG; fixture construction also uses
-global NumPy randomness. This fix is local to the runner, preserving the
-downloaded library sources. Camera failures save expected/actual frames as NPZ
-files and report the step, changed-value count, and maximum intensity difference.
+```powershell
+& $python scripts/eval_study.py --method base_vla --seeds 100 101 102 --policy-seeds 0 1 --repeats 2 --horizon 900 --save-video --output runs/base-new
+```
 
-## Validation results and limits
+Use a fresh output directory. JSONL is flushed after every episode. Reports record
+initial-state and model hashes, instruction, policy seed, simulator seed, physics,
+timeout, success, completion steps for successes only, final openness, and timing.
+Source hashes, Git revisions, package versions, and checkpoint path are stored in
+run_config.json. Repeated trials are not independent training runs.
 
-Validation on 2026-11-15 used the specified `vla-rl` Python environment:
+## Training and shared evaluation
 
-- All 21 unit/integration tests passed, including SB3 replay timeout handling.
-- Live reward validation passed on actual CloseFridge joints: normalized openness
-  `[1, 0.5, 0]`, closure rewards `[2.5, 12.5]`, stationary progress reward `0`, and
-  reopening reward `-2.5`. The upstream success predicate accepted closed doors
-  and rejected half-open doors. See `runs/reward-check-seeded/report.json`.
-- Zero-residual equivalence passed for 8 steps, including exact pending/executed
-  actions, qpos, proprioception, all three camera hashes (reset plus every step),
-  sparse reward, and success. See `runs/zero-check-seeded/report.json`. Initial
-  attempts with only the kitchen RNG seeded failed on one-level camera intensity
-  differences; exact comparisons were retained when fixing the reset seeding.
-- CUDA TD3 smoke training passed: 64 transitions over two 32-step episodes and
-  56 optimizer updates. The actor changed, rewards were finite, and every SmolVLA
-  parameter remained frozen and unchanged, with no gradients. Artifacts are
-  `runs/td3-smoke-seeded/report.json`, `monitor.csv`, and `td3.zip`.
+These are candidate training budgets, not validated learning-quality settings:
 
-These are integration checks, not evidence of task competence or training
-convergence. No residual task-performance result is claimed. Numba compilation
-caches remain under `runs/`. Existing downloaded libraries
-and their pre-existing changes were preserved.
+```powershell
+& $python scripts/train_residual.py --mode train --perturbation nominal --seed 0 --policy-seed 10000 --train-seeds 200 201 202 203 --steps 9000 --horizon 900 --output runs/nominal-s0-new
+& $python scripts/train_residual.py --mode train --perturbation phys_random_train --seed 0 --policy-seed 10000 --train-seeds 200 201 202 203 --steps 9000 --horizon 900 --output runs/random-s0-new
+& $python scripts/eval_study.py --method residual_td3 --model-path runs/nominal-s0-new/td3.zip --seeds 100 101 102 --policy-seeds 0 1 --repeats 2 --horizon 900 --output runs/nominal-eval-new
+& $python scripts/eval_study.py --method residual_td3 --model-path runs/random-s0-new/td3.zip --seeds 100 101 102 --policy-seeds 0 1 --repeats 2 --horizon 900 --output runs/random-eval-new
+```
 
-The SB3 API used here follows its [TD3 2.7.0 documentation](https://stable-baselines3.readthedocs.io/en/v2.7.0/modules/td3.html).
+Repeat both training conditions with independent learner seeds 1 and 2 at equal
+budgets. Do not fine-tune the randomized condition from a nominal model for the
+main comparison. Reserve initialization seeds 100-102 for evaluation. Do not tune
+against their outcomes. Report uncertainty across independent training runs.
+SmolVLA now owns a private Torch RNG stream, so policy resets and inference do
+not reset or consume TD3's Torch RNG. Training uses a separate policy seed sequence.
+training_resets.jsonl records each actual reset and sampled physical parameters.
+
+Physics randomization currently samples damping in [0.8, 1.8], added joint
+friction loss in [0, 0.35], and sliding contact friction scale in [0.7, 1.4].
+Contact changes now target the task fixture and gripper, excluding floor/wheels
+and unrelated scene geometry. Contact pair combination can limit the effect of
+lowering one surface's coefficient; physical feasibility and realized effects
+still require live tests. Fixed held-out presets are exploratory, not a validated
+severity study. Lighting/texture presets remain legacy code outside this study.
+
+## Observed audit checks, 2026-11-23
+
+- 31 unit/integration tests pass, including private RNG isolation and contact target selection.
+- An initial eight-step zero-check passed. It was insufficient to establish long-run equivalence.
+- Strict live-image 60-step check failed at step 13: three left-camera channel
+  values differed by one intensity level; qpos, proprioception, and actions matched
+  through that step. No relaxed tolerance was substituted.
+- The recorded-image 60-step check passed exact actions, qpos, proprioception,
+  rewards, and success across chunk boundaries. Live rendering differences remain.
+- A separate native-instruction diagnostic also failed action equality and is
+  not a checkpoint-matched baseline; do not pool it with class-label runs.
+
+See runs/audit-zero-strict-label-20261123 and runs/audit-zero-recorded-20261123.
+The full nominal-versus-randomized study, successful residual learning, validated
+task extensions, severity feasibility sweeps, and causal rescue claims remain
+unestablished. Identical initial hashes are necessary but do not remove rendering
+variability. Paired outcome changes must be compared against repeated baselines.
+
+
+## Reset fix and bounded training validation
+
+The simulator-only audit found 69 geometry-color values changed between the
+first and second seed-100 resets. Lazy construction consumed the global RNG
+before the first episode. `seeded_reset` now initializes the lazy environment
+inside a saved RNG context, then reseeds before the actual episode reset.
+After the fix, qpos, qvel, and every inspected numeric model array matched:
+`runs/audit-reset-fixed-20261123/report.json`.
+
+The XML hash in episode records is a serialization checksum, not a complete
+semantic equivalence test. The XML exporter can omit `content_type` on later
+exports; use the numeric-model reset audit to diagnose such hash differences.
+
+The pre-fix four-episode baseline had 0/4 successes (900 steps each), approximately
+16 simulator steps/second including reset. Keep it separate from post-fix runs.
+Within the matched later pre-fix pair (policy seed 1), final openness differed
+by 0.0396 despite identical initial state and XML hashes. Rendering variability
+can therefore matter for outcome-pair interpretation even after matching resets.
+
+A randomized-physics integration run completed 128 steps and 96 optimizer
+updates with the 59-value observation, finite replay rewards, changed actor
+parameters, and frozen SmolVLA verified. It completed zero episodes, so it is
+NOT evidence of learning quality. Its actual physics and independent seeds are
+in `runs/audit-training-integration-20261123/training_resets.jsonl`.
+
+Reproduce that bounded integration check with a fresh directory:
+
+```powershell
+& $python scripts/train_residual.py --mode train --steps 128 --learning-starts 32 --batch-size 16 --horizon 900 --perturbation phys_random_train --output runs/integration-new
+& $python scripts/audit_resets.py --seed 100 --output runs/reset-audit-new
+& $python scripts/summarize_audit.py runs/audit-base-fixed-20261123/eval_report.json --output runs/audit-base-fixed-20261123/summary
+```
+
+Post-fix frozen baseline (one simulator initialization, policy seed 0):
+
+| Repeat | Success | Steps | Final mean openness |
+| --- | --- | --- | --- |
+| 0 | False | 900 | 0.690975 |
+| 1 | False | 900 | 0.620590 |
+
+Both videos and full episode records are under `runs/audit-base-fixed-20261123`.
+This sample cannot estimate general task competence. Successful residual
+learning, task extensions, multiple independent training runs, held-out severity
+sweeps, feasibility validation, and rescue/harm analysis remain future work.

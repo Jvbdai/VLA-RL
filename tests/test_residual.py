@@ -196,6 +196,92 @@ class SB3IntegrationTests(unittest.TestCase):
         np.testing.assert_array_equal(buffer.next_observations[1, 0, :16], np.full(16, 2))
         np.testing.assert_array_equal(buffer.next_observations[1, 0, 16:28], np.full(12, .3, np.float32))
 
+class MultiTaskAndPerturbationTests(unittest.TestCase):
+    def test_make_reward_supports_all_four_study_tasks(self):
+        from vla_rl.rewards import (
+            CloseFridgeReward,
+            OpenCabinetReward,
+            OpenFridgeReward,
+            PlaceDishInSinkReward,
+            make_reward,
+        )
+
+        self.assertIsInstance(make_reward("CloseFridge"), CloseFridgeReward)
+        self.assertIsInstance(make_reward("OpenFridge"), OpenFridgeReward)
+        self.assertIsInstance(make_reward("OpenCabinet"), OpenCabinetReward)
+        self.assertIsInstance(make_reward("PlaceDishInSink"), PlaceDishInSinkReward)
+        with self.assertRaises(ValueError):
+            make_reward("UnknownTask")
+
+    def test_open_fridge_reward_sign_is_opposite_close_fridge(self):
+        from types import SimpleNamespace
+        from vla_rl.rewards import OpenFridgeReward
+
+        state = {"door_jnt": 0.2}
+        fxtr = SimpleNamespace(
+            _fridge_door_joint_names=["door_jnt"],
+            get_joint_state=lambda env, joint_names: {k: state[k] for k in joint_names},
+        )
+        kitchen = SimpleNamespace(fxtr=fxtr)
+        env = SimpleNamespace(
+            unwrapped=SimpleNamespace(task="OpenFridge", _env=SimpleNamespace(env=kitchen))
+        )
+        reward_fn = OpenFridgeReward()
+        reward_fn.reset(env)
+        # Opening from 0.2 -> 0.8 (+0.6 change) should yield +3.0 progress
+        state["door_jnt"] = 0.8
+        r_open, terms = reward_fn.step(env, success=False, correction=np.zeros(6))
+        self.assertAlmostEqual(r_open, 3.0, places=6)
+        self.assertAlmostEqual(terms["progress"], 3.0, places=6)
+        # Closing back from 0.8 -> 0.4 (-0.4 change) should penalize by -2.0
+        state["door_jnt"] = 0.4
+        r_close, _ = reward_fn.step(env, success=False, correction=np.zeros(6))
+        self.assertAlmostEqual(r_close, -2.0, places=6)
+
+    def test_perturbation_wrapper_restores_baseline_and_never_compounds(self):
+        from types import SimpleNamespace
+        import gymnasium as gym
+        from vla_rl.perturbations import PRESETS, PerturbationWrapper
+
+        class DummyKitchenEnv(gym.Env):
+            def __init__(self):
+                self.action_space = gym.spaces.Box(-1, 1, (12,), dtype=np.float32)
+                self.observation_space = gym.spaces.Dict({})
+                model = SimpleNamespace(
+                    dof_damping=np.array([1.0, 2.0], dtype=np.float64),
+                    dof_frictionloss=np.array([0.1, 0.2], dtype=np.float64),
+                    geom_friction=np.array([[1.0, 0.005, 0.0001]], dtype=np.float64),
+                    geom_rgba=np.array([[0.5, 0.5, 0.5, 1.0]], dtype=np.float32),
+                    nmat=1,
+                    mat_rgba=np.array([[0.4, 0.4, 0.4, 1.0]], dtype=np.float32),
+                    nlight=1,
+                    light_diffuse=np.array([[0.8, 0.8, 0.8]], dtype=np.float32),
+                    light_ambient=np.array([[0.2, 0.2, 0.2]], dtype=np.float32),
+                    light_pos=np.array([[0.0, 0.0, 2.0]], dtype=np.float32),
+                    joint_names=["door_jnt"],
+                    joint_name2id=lambda name: 0,
+                    jnt_dofadr=np.array([1]),
+                )
+                sim = SimpleNamespace(model=model, forward=lambda: None)
+                fxtr = SimpleNamespace(_fridge_door_joint_names=["door_jnt"])
+                self._env = SimpleNamespace(env=SimpleNamespace(sim=sim, fxtr=fxtr))
+
+            def reset(self, *, seed=None, options=None):
+                return {}, {}
+
+            def step(self, action):
+                return {}, 0.0, False, False, {}
+
+        base_env = DummyKitchenEnv()
+        # A hinge-only perturbation must preserve even very small surface friction.
+        base_env._env.env.sim.model.geom_friction[0, 0] = 0.001
+        wrapped = PerturbationWrapper(base_env, PRESETS["heldout_high_resistance"])
+        wrapped.reset(seed=0)
+        self.assertAlmostEqual(base_env._env.env.sim.model.dof_damping[1], 6.0)
+        self.assertEqual(base_env._env.env.sim.model.geom_friction[0, 0], 0.001)
+        # Resetting a second time must restore baseline (2.0) before multiplying by 3.0 -> still 6.0, not 18.0
+        wrapped.reset(seed=1)
+        self.assertAlmostEqual(base_env._env.env.sim.model.dof_damping[1], 6.0)
 
 if __name__ == "__main__":
     unittest.main()

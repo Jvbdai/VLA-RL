@@ -31,12 +31,12 @@ class FrozenSmolVLA:
         )
         self.env_pre, self.env_post = make_env_pre_post_processors(RoboCasaEnvConfig(), config)
         self.env, self.instruction, self.device = env, instruction, device
+        from vla_rl.policy_rng import PolicyRNG
+        self.rng = PolicyRNG(device)
 
     def reset(self, seed=None):
         if seed is not None:
-            torch.manual_seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(seed)
+            self.rng.reset(seed)
         self.policy.reset()
         for processor in (self.pre, self.post, self.env_pre, self.env_post):
             processor.reset()
@@ -46,10 +46,10 @@ class FrozenSmolVLA:
 
         # Explicit allowlist excludes privileged fields even if the env adds them.
         batch = preprocess_observation({"pixels": obs["pixels"], "agent_pos": obs["agent_pos"]})
-        batch["task"] = [self.instruction or self.env.task_description]
+        batch["task"] = [self.instruction or self.env.unwrapped.task_description]
         batch = self.pre(self.env_pre(batch))
         amp = torch.autocast(device_type=torch.device(self.device).type) if self.policy.config.use_amp else nullcontext()
-        with torch.inference_mode(), amp:
+        with self.rng.use(), torch.inference_mode(), amp:
             action = self.post(self.policy.select_action(batch))
             action = self.env_post({"action": action})["action"]
         # Read the actual queue, rather than assuming chunk_size == n_action_steps.

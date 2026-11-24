@@ -1,0 +1,62 @@
+{
+  "arguments": {
+    "task": "CloseFridge",
+    "perturbation": "nominal",
+    "method": "base_vla",
+    "model_path": null,
+    "instruction": null,
+    "checkpoint": null,
+    "seeds": [
+      100
+    ],
+    "policy_seeds": [
+      0
+    ],
+    "repeats": 2,
+    "episodes_per_seed": 1,
+    "horizon": 900,
+    "scale": 0.1,
+    "observation_mode": "fridge_ground_truth",
+    "save_video": true,
+    "output": "C:\\Users\\Joshua\\PycharmProjects\\VLA-RL\\runs\\audit-base-fixed-20261123"
+  },
+  "provenance": {
+    "git_head": "1d7de0099f9cbd402b451c9bf69891668942572f",
+    "git_status": "M README.md\n M docs/residual.md\n m robocasa\nAM scripts/eval_study.py\n M scripts/train_residual.py\nAM src/vla_rl/perturbations.py\n M src/vla_rl/residual.py\n M src/vla_rl/rewards.py\n M src/vla_rl/smolvla.py\n M tests/test_residual.py\n?? docs/history/\n?? scripts/audit_resets.py\n?? scripts/summarize_audit.py\n?? src/vla_rl/door_observation.py\n?? src/vla_rl/policy_rng.py\n?? src/vla_rl/provenance.py\n?? src/vla_rl/seed_schedule.py\n?? tests/test_policy_rng.py\n?? tests/test_training_setup.py",
+    "dependency_heads": {
+      "robocasa": "3443cdf3dd20f9ae8ed41adba442059b506891d0",
+      "robosuite": "5ce6643f3092639d08f7b0f90ed1c6a84f50552c",
+      "third_party/lerobot": "45a0756dfda4010eef6c0bfb2a95c5dd23c03fc6"
+    },
+    "source_sha256": {
+      "src\\vla_rl\\door_observation.py": "4e8ee33c1259fc6ed4d816a7669cb354741461e600c1bee069be4b66024683d2",
+      "src\\vla_rl\\experiment.py": "da4b8ba38fdaf3551553f3eabf82b52811c17cef38aaf09de48c67dd2af35f9a",
+      "src\\vla_rl\\faults.py": "b4b56cca65e3d4dfc98d7c6b22ffff65ccfd5ce192b7d063d0dd7c2ae4367c57",
+      "src\\vla_rl\\perturbations.py": "9549c3d1b5e35c7ca8a38bf7125169bc163381c256ac4e44e0b6010a0087b6a1",
+      "src\\vla_rl\\policy_rng.py": "299e77337e72b6029a91b07f11ac7f3b68f2813e92f7e4acc2aff4b0b1e6977e",
+      "src\\vla_rl\\provenance.py": "21830eb87fb45d776da1d04bd6937e13f00a0fd374fdb4d411f90354f8ea941f",
+      "src\\vla_rl\\residual.py": "eeba452f796a1cd4f077983415f5cd263f39f6df6b1ba47028420c269ae3ddd4",
+      "src\\vla_rl\\rewards.py": "4ce5a247310723d3403adaafedb3322f5aaaff7aa7e80b9f25ba83b712c5aa5b",
+      "src\\vla_rl\\seed_schedule.py": "916d0ca8b7b107bae868dd3b8f09f2d038494717021f2106a101cf9d6d7c0514",
+      "src\\vla_rl\\smolvla.py": "2d90569cfe4301598392940a64840ff343881e5be10cd072696bd6608813f7a9",
+      "src\\vla_rl\\__init__.py": "d3a3adda0464636c01cd8626b270448b9df2e8788efb813fa3daa6a58476cb4e",
+      "scripts\\audit_resets.py": "95d39bf410a825d1cfb9e4a5174e92818a49f6d43d1d86ab42c76e64d28a5bae",
+      "scripts\\check_experiment.py": "4cd9be039b90ceb590747bf3188ab28316e6519409c6e189d08f3e9f2913a968",
+      "scripts\\diagnostic_eval.py": "e272cb20114f8de58c925e552ea8a0a622b5939e0c516b07a71bfd6f8d797fcf",
+      "scripts\\eval_study.py": "06db2745bddc56debd35dd04f574a60d08bc93019aeb4d9a5f7338e22a655794",
+      "scripts\\run_smolvla.py": "2a4942122279843713f48cf4c6cb37e55331c4040c1cd4435a95289daa0a208f",
+      "scripts\\summarize_audit.py": "76105d34762313216659c5ac847ff25b1b670bb6e88153b7835a1e5f161e0cd9",
+      "scripts\\train_residual.py": "5bf866dd37fdfd49ba4fb747bcd7bb795b7da528006417b172d5534a8970c034"
+    },
+    "packages": {
+      "torch": "2.7.1+cu128",
+      "mujoco": "3.3.1",
+      "gymnasium": "1.2.3",
+      "stable-baselines3": "2.7.0",
+      "lerobot": "0.7.1",
+      "robocasa": "1.0.1",
+      "robosuite": "1.5.2"
+    },
+    "checkpoint": "C:\\Users\\Joshua\\.cache\\huggingface\\hub\\models--lerobot--smolvla_robocasa\\snapshots\\f7af588d11e30b0069f200792fb285904b74c80b"
+  }
+}

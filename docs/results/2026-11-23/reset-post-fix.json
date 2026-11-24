@@ -1,0 +1,6 @@
+{
+  "seed": 100,
+  "qpos_exact": true,
+  "qvel_exact": true,
+  "model_array_differences": {}
+}

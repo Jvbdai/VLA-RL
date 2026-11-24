@@ -1,4 +1,4 @@
-"""Low-dimensional residual control; simulator internals are reward-only."""
+"""Bounded residual control, with optional explicitly privileged door features."""
 
 import gymnasium as gym
 import numpy as np
@@ -33,7 +33,7 @@ class ResidualEnv(gym.Wrapper):
     The reward provider implements reset(env), step(env, success, correction).
     """
 
-    def __init__(self, env, base, reward, *, scale=0.1, horizon=500):
+    def __init__(self, env, base, reward, *, scale=0.1, horizon=900, object_observation=None):
         super().__init__(env)
         self.scale = np.broadcast_to(np.asarray(scale, np.float32), (6,)).copy()
         if not np.isfinite(self.scale).all() or np.any(self.scale < 0):
@@ -44,7 +44,9 @@ class ResidualEnv(gym.Wrapper):
             raise ValueError("expected PandaOmron's 12-component action space")
         self.base, self.reward_provider, self.horizon = base, reward, horizon
         self.action_space = gym.spaces.Box(-1, 1, (6,), dtype=np.float32)
-        self.observation_space = gym.spaces.Box(-np.inf, np.inf, (29,), dtype=np.float32)
+        self.object_observation = object_observation
+        extra = 0 if object_observation is None else object_observation.size
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, (29 + extra,), dtype=np.float32)
         self._done = True
 
     def _observation(self, raw):
@@ -57,11 +59,19 @@ class ResidualEnv(gym.Wrapper):
             raise ValueError("invalid VLA action")
         if not np.isfinite(position) or not 0 <= position <= 1:
             raise ValueError("invalid normalized chunk position")
-        return np.concatenate((proprio, self.pending_action, [position])).astype(np.float32)
+        parts = [proprio, self.pending_action, [position]]
+        if self.object_observation is not None:
+            features = np.asarray(self.object_observation(self.env), dtype=np.float32)
+            if features.shape != (self.object_observation.size,) or not np.isfinite(features).all():
+                raise ValueError("Invalid object observation")
+            parts.append(features)
+        return np.concatenate(parts).astype(np.float32)
 
     def reset(self, *, seed=None, options=None):
         raw, info = self.env.reset(seed=seed, options=options)
-        self.base.reset(seed)
+        policy_seed = (options or {}).get("policy_seed", info.get("episode_seed", seed))
+        self.base.reset(policy_seed)
+        info = dict(info, policy_seed=policy_seed)
         self.reward_provider.reset(self.env)
         self._steps, self._done = 0, False
         return self._observation(raw), info

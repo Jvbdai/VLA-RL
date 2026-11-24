@@ -1,87 +1,128 @@
 # VLA-RL
 
-Evaluating Residual Reinforcement Learning for Robust Household Manipulation
+Simulation-only research on frozen vision-language-action policies with learned
+residual control in RoboCasa, using the PandaOmron robot.
 
-Residual reinforcement learning can improve a pretrained vision-language-action
-(VLA) policy. This project investigates when those corrections fail, particularly
-when object tracking produces persistent errors.
+**Research question:** Does training a residual RL policy across varied physical
+conditions improve unseen household interactions, and what failures remain when
+the residual receives accurate object state?
 
-**Research question:** At comparable pose-error magnitude, do persistent tracking
-errors cause more harmful residual corrections than independent noise, and can
-a temporal consistency check mitigate that effect?
+The experiment compares frozen SmolVLA, SmolVLA plus nominally trained residual
+TD3, and SmolVLA plus physics-randomized residual TD3. The contribution must be
+a measured experimental finding. Combining these existing methods or measuring
+harmful corrections is not itself a novelty claim.
 
-## Status
+## What runs today
 
-The current implementation milestone is CloseFridge residual control. See
-[residual setup and validation](docs/residual.md) for the frozen SmolVLA wrapper,
-SB3 TD3 smoke command, validation status, and the current research scope. The
-tracking-fault protocol below is historical and is not the active research plan.
+- **Pretrained policy:** `lerobot/smolvla_robocasa`, kept frozen during TD3 training.
+  Running inference does not fine-tune SmolVLA.
+- **Residual:** six bounded arm corrections at action indices `5:11`, with default
+  scale 0.1. SmolVLA retains base movement, control mode, and gripper control.
+- **Observation:** 59 values by default: proprioception, pending VLA action,
+  chunk position, and simulator-ground-truth fridge geometry. Legacy 29-input
+  checkpoints require explicit `--observation-mode proprio`.
+- **Current task:** CloseFridge, using native success and a 900-step horizon.
+- **Reproducibility:** separate simulator, policy, and learner RNG streams;
+  repeated baseline evaluation; checkpoint contracts; source/version provenance;
+  sampled physics logs; per-episode results and optional three-camera videos.
 
-Project initialization only. This repository includes an experiment protocol,
-configuration validator, deterministic synthetic position-fault generator, and
-tests. **It does not yet run a robot, load a VLA, or train TD3. No experimental
-results or novelty claims are established.**
+Ground-truth geometry is an intentional experimental condition, not evidence of
+robustness to tracking errors. See [implementation and commands](docs/residual.md)
+for the reward, observations, physics ranges, and validation limitations.
+
+## Validation status
+
+The 2026-11-23 audit established integration checks, not successful residual learning:
+
+| Check | Observed result |
+| --- | --- |
+| Unit/integration suite | 31 tests passed |
+| Same-seed reset audit after RNG fix | Exact qpos, qvel, and inspected numeric model arrays |
+| Zero residual with recorded policy images | Exact actions and observed dynamics for 60 steps |
+| Strict live-image zero residual | Failed on small rendering differences; end-to-end equivalence remains unresolved |
+| Randomized TD3 smoke run | 128 steps, 96 optimizer updates, actor changed, SmolVLA frozen; zero complete episodes |
+| Post-fix frozen baseline | 0/2 successes at 900 steps on simulator seed 100 and policy seed 0 |
+| Final mean door openness in those repeats | 0.691 and 0.621 (lower is better) |
+
+The small sample cannot establish general task competence or residual efficacy.
+The recorded-image check isolates wrapper behavior; it is not an end-to-end
+equivalence pass. Identical seeds alone do not guarantee identical rendered
+trajectories. XML hash differences can also reflect serialization changes, so
+inspect numeric model arrays before attributing a mismatch to physical state.
+
+Compact [audit reports](docs/results/2026-11-23) are versioned for this handoff.
+Full `runs/` outputs, videos, model weights, and downloaded assets remain local
+and ignored by Git. Their original locations appear in the reports.
 
 ## Quick start
 
-Python 3.11 or newer; the starter uses only the standard library.
+Use the configured `vla-rl` environment with CUDA, RoboCasa/robosuite assets,
+editable LeRobot, and cached SmolVLA dependencies. This is not a standalone
+standard-library project. On the validated Windows machine:
 
-```bash
-python scripts/check_experiment.py configs/close_fridge.json
-python -m unittest discover -s tests -v
+```powershell
+Set-Location 'C:\Users\Joshua\PycharmProjects\VLA-RL'
+$python = 'C:\Users\Joshua\miniconda3\envs\vla-rl\python.exe'
+& $python -m unittest discover -s tests -v
+& $python scripts/audit_resets.py --seed 100 --output runs/reset-audit-new
+& $python scripts/eval_study.py --method base_vla --seeds 100 --policy-seeds 0 1 --repeats 2 --horizon 900 --save-video --output runs/base-new
 ```
 
-On Windows, use `py -3.11` instead of `python` if needed. A successful check prints
-the proposed evaluation count; it does not execute simulation episodes.
+Each invocation should use a fresh output directory. On another machine, adapt
+the paths and use its configured Python interpreter. Checkpoint loading is
+offline by default. Supply `--checkpoint <snapshot-directory>` when necessary.
+The validated snapshot is `f7af588d11e30b0069f200792fb285904b74c80b`.
+Dependency versions and source revisions from the baseline audit are included in
+the versioned provenance report; assets and dependencies must be installed separately.
 
-## Planned stack
+For a bounded training integration check:
 
-| Component | Starting choice |
+```powershell
+& $python scripts/train_residual.py --mode train --steps 128 --learning-starts 32 --batch-size 16 --horizon 900 --perturbation phys_random_train --output runs/integration-new
+```
+
+This deliberately short run tests optimizer updates and frozen weights. Use the
+[full training and shared evaluation commands](docs/residual.md#training-and-shared-evaluation)
+for candidate nominal/randomized experiments; their budgets are not validated
+learning-quality settings. The same evaluation entry point supports `base_vla`
+and `residual_td3 --model-path <td3.zip>`.
+
+## Next research steps
+
+1. Resolve or quantify live-rendering variability and strengthen matching checks
+   before interpreting paired rescue/harm outcomes.
+2. Establish full-task CloseFridge learning curves and held-out performance, with
+   equal budgets and multiple independent learner seeds. Keep debugging curricula
+   separate from full-task results.
+3. Add task-specific dishwasher and bottle-sorting observations, rewards, and
+   diagnostics. Coverage is verified for SlideDishwasherRack, LoadDishwasher,
+   and RecycleBottlesByType in the checkpoint's training metadata; competence is
+   not verified. These tasks are not equivalent to trash-lid manipulation.
+4. Validate task-relevant physical perturbations and feasibility, then run held-out
+   severity sweeps and report uncertainty across training runs.
+
+See [checkpoint task coverage](docs/checkpoint_task_coverage.json) for source and
+metadata identifiers. CloseDishwasher exists locally but is absent from that
+checkpoint's task list. No environment success definition should be changed.
+
+## Repository guide and handoff notes
+
+| Location | Purpose |
 | --- | --- |
-| Physics and tasks | MuJoCo through RoboCasa |
-| Robot | RoboCasa's compatible PandaOmron configuration |
-| Frozen base policy | RoboCasa-trained SmolVLA, subject to baseline verification |
-| Residual learner | TD3 via Stable-Baselines3 |
-| First task | `CloseFridge` |
-| Proposed extension | Temporal consistency gating of residual corrections |
+| `src/vla_rl/` | Frozen policy, residual wrapper, rewards, physics, observations, seeding, provenance |
+| `scripts/train_residual.py` | Reward/zero checks and TD3 training |
+| `scripts/eval_study.py` | Frozen/residual evaluation, repeats, reports, videos |
+| `scripts/audit_resets.py` | Numeric simulator reset and XML comparison |
+| `scripts/summarize_audit.py` | Baseline CSV table and repeat-variability plot |
+| `tests/` | Behavioral and integration regression checks |
+| `docs/residual.md` | Detailed current protocol, commands, and limitations |
+| `docs/results/2026-11-23/` | Small handoff evidence snapshots |
 
-The first milestone is a recorded baseline rollout. Choose the remaining two
-tasks only after verifying environment assets and checkpoint competence. These
-are adapted tasks, not an exact reproduction of the reference paper's FR3 scenes.
+Older tracking-fault, temporal-gating, camera-corruption, and alternative-task
+plans are historical, including the older configs and documents not linked as
+the current protocol above. Previous README and residual instructions are
+preserved in `docs/history/`.
 
-## Repository layout
-
-```text
-configs/                 Experiment settings
-docs/                    Research protocol, setup, and milestones
-scripts/                 Lightweight entry points
-src/vla_rl/              Experiment validation and synthetic tracking faults
-tests/                   Determinism and fault-semantics checks
-```
-
-Large checkpoints, downloaded datasets, videos, and generated runs are ignored.
-Record download locations and exact upstream revisions instead of copying them
-into Git. No upstream model or dataset licenses are overridden by this project.
-
-## Getting started as a team
-
-1. Read [setup](docs/setup.md) and reproduce one base-policy rollout on the server.
-2. Follow [milestones](docs/milestones.md), keeping model and environment versions fixed.
-3. Use the [research protocol](docs/research_protocol.md) to separate tuning from evaluation.
-4. Commit small changes with the commands, configuration, and validation used.
-
-## Related work and reusable sources
-
-- [Object-Centric Residual RL (Kim et al., 2026)](https://arxiv.org/abs/2606.18953):
-  object-pose-based residual TD3 over a frozen VLA; the main base VLA is GR00T-N1.5.
-- [VLaRL (Saito et al., 2026)](https://arxiv.org/abs/2609.30868):
-  subsequent work using VLA latents and sim-to-real latent alignment.
-- [Uncertainty-calibrated VLA gating](https://pmc.ncbi.nlm.nih.gov/articles/PMC13210885/):
-  related intervention and fallback research.
-- [RoboCasa](https://github.com/robocasa/robocasa)
-- [LeRobot RoboCasa integration](https://huggingface.co/docs/lerobot/main/robocasa)
-- [SmolVLA RoboCasa checkpoint](https://huggingface.co/lerobot/smolvla_robocasa)
-- [Stable-Baselines3 TD3](https://stable-baselines3.readthedocs.io/en/master/modules/td3.html)
-
-The proposed contribution must be assessed against these and other related works.
-Running residual RL on additional tasks is not, by itself, a new method.
+The local RoboCasa checkout has pre-existing asset working-tree changes. They
+are not part of this parent-repository commit; the pinned dependency revision
+is unchanged. Downloaded LeRobot and simulator assets are also not bundled.

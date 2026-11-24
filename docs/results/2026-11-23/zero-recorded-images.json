@@ -1,0 +1,522 @@
+{
+  "mode": "zero-check",
+  "compared_steps": 60,
+  "exact_actions_and_state": true,
+  "camera_max_allowed_intensity_difference": 0,
+  "policy_images": "recorded",
+  "end_to_end_equivalence": false,
+  "camera_differences": [
+    {
+      "step": 3,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 15,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 19,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 6,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 20,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 6,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 21,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 23,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 30,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 24,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 24,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 25,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 28,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 29,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 31,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 32,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 15,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 33,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 3,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 36,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 6,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 39,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 40,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 15,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 3,
+          "max_difference": 1
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 41,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 15,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 6,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 42,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 15,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 44,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 15,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 45,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 46,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 18,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 47,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 48,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 9,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 49,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 50,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 54,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 15,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 55,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 12,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 3,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 56,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 6,
+          "max_difference": 1
+        }
+      }
+    },
+    {
+      "step": 57,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 12,
+          "max_difference": 1
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 0,
+          "max_difference": 0
+        }
+      }
+    },
+    {
+      "step": 59,
+      "cameras": {
+        "robot0_agentview_left": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_eye_in_hand": {
+          "changed_values": 0,
+          "max_difference": 0
+        },
+        "robot0_agentview_right": {
+          "changed_values": 12,
+          "max_difference": 1
+        }
+      }
+    }
+  ],
+  "seed": 0,
+  "global_reset_rngs_seeded": true
+}
