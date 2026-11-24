@@ -30,6 +30,29 @@ Ground-truth geometry is an intentional experimental condition, not evidence of
 robustness to tracking errors. See [implementation and commands](docs/residual.md)
 for the reward, observations, physics ranges, and validation limitations.
 
+## Continuation status — 2026-11-24
+
+- A 9,000-step nominal CloseFridge pilot completed 8,100 optimizer updates;
+  SmolVLA remained frozen. It succeeded in 3 of 11 completed training episodes,
+  all on initialization seed 201. This is not evidence of held-out improvement.
+  See [training summary](docs/results/2026-11-24/learning-summary.json).
+- Numeric model fingerprints and strict matched-outcome reports supplement XML
+  hashes. A simulator-only replay found exact qpos/qvel and matching models,
+  but repeated rendering of the same state can differ by one intensity level.
+- Rack sliding and bottle sorting now have task-specific observations, rewards,
+  diagnostics, and registered horizons (450 and 2,850 steps). Their physics
+  randomization remains disabled until validated; live integration results are
+  recorded separately from competence evaluations.
+- Training saves intermediate checkpoints and learning curves. The latest suite
+  contains 39 passing tests. The prior audit below is retained as history.
+
+For a new checkout, initialize the pinned simulator dependencies with
+`git submodule update --init --recursive`. Install the simulator assets separately.
+The validated external LeRobot checkout is https://github.com/huggingface/lerobot.git
+at revision `45a0756dfda4010eef6c0bfb2a95c5dd23c03fc6`; it remains outside Git under
+`third_party/lerobot`. Full installation of the CUDA environment and model cache
+is still required; submodule initialization alone is not a complete installation.
+
 ## Validation status
 
 The 2026-11-23 audit established integration checks, not successful residual learning:

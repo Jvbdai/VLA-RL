@@ -1,4 +1,4 @@
-"""Task training rewards. Privileged state never enters policy observations."""
+"""Task shaping from simulator state; privileged residual inputs are explicitly configured."""
 
 import numpy as np
 
@@ -167,6 +167,9 @@ REWARD_BY_TASK = {
 
 
 def make_reward(task: str, action_weight: float = 0.05):
+    if task in ("SlideDishwasherRack", "RecycleBottlesByType"):
+        from vla_rl.task_interfaces import TaskProgressReward
+        return TaskProgressReward(task, action_weight)
     if task not in REWARD_BY_TASK:
         raise ValueError(f"Unsupported task {task!r}; expected one of {sorted(REWARD_BY_TASK)}")
     return REWARD_BY_TASK[task](action_weight=action_weight)

@@ -26,7 +26,10 @@ def main():
             continue
         pairs.append({"seed": a["seed"], "policy_seed": a["policy_seed"],
             "matched_initial_state": a["initial_state_sha256"] == b["initial_state_sha256"],
-            "matched_initial_model": a["initial_model_sha256"] == b["initial_model_sha256"],
+            "matched_initial_model_xml": a["initial_model_sha256"] == b["initial_model_sha256"],
+            "matched_initial_numeric_model": (
+                a["initial_numeric_model"] == b["initial_numeric_model"]
+                if "initial_numeric_model" in a and "initial_numeric_model" in b else None),
             "outcome_changed": a["success"] != b["success"],
             "final_openness_difference": abs(a["final_openness"] - b["final_openness"])})
     (args.output / "repeat_variability.json").write_text(json.dumps({

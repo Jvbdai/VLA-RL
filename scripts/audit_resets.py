@@ -25,11 +25,13 @@ def main():
     from vla_rl.seed_schedule import seeded_reset
     env = RoboCasaEnv(task="CloseFridge", episode_length=900)
     try:
-        snapshots, xmls, states = [], [], []
+        from vla_rl.model_identity import numeric_model_identity
+        snapshots, xmls, states, identities = [], [], [], []
         for repeat in range(2):
             obs, _ = seeded_reset(env.reset, args.seed)
             sim = env._env.env.sim
             model = sim.model._model
+            identities.append(numeric_model_identity(model))
             arrays = {}
             for name in dir(model):
                 value = getattr(model, name)
@@ -52,7 +54,9 @@ def main():
                                      "nonfinite_mask_changed": bool(np.any(np.isfinite(before) != np.isfinite(after)))}
         report = {"seed": args.seed, "qpos_exact": bool(np.array_equal(states[0][0], states[1][0])),
                   "qvel_exact": bool(np.array_equal(states[0][1], states[1][1])),
-                  "model_array_differences": differences}
+                  "model_array_differences": differences,
+                  "numeric_identity_equal": identities[0] == identities[1],
+                  "numeric_identities": identities}
         (args.output / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         (args.output / "model.diff").write_text("".join(difflib.unified_diff(xmls[0].splitlines(True), xmls[1].splitlines(True))), encoding="utf-8")
         print(json.dumps(report, indent=2))

@@ -1,0 +1,20 @@
+{
+  "mode": "train",
+  "steps": 9000,
+  "updates": 8100,
+  "replay_class": "ReplayBuffer",
+  "frozen_verified": true,
+  "checkpoint": "C:\\Users\\Joshua\\.cache\\huggingface\\hub\\models--lerobot--smolvla_robocasa\\snapshots\\f7af588d11e30b0069f200792fb285904b74c80b",
+  "seed": 0,
+  "scale": 0.1,
+  "horizon": 900,
+  "observation_mode": "fridge_ground_truth",
+  "train_seeds": [
+    200,
+    201,
+    202,
+    203
+  ],
+  "episodes": 11,
+  "gamma": 0.995
+}

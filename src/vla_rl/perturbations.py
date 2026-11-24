@@ -185,12 +185,13 @@ class PerturbationWrapper(gym.Wrapper):
 
         # 3. Lighting perturbation
         if model.nlight > 0:
-            model.light_diffuse[:] = np.clip(
-                model.light_diffuse * spec.light_intensity_scale, 0.0, 2.0
-            )
-            model.light_ambient[:] = np.clip(
-                model.light_ambient * spec.light_intensity_scale, 0.0, 2.0
-            )
+            if spec.light_intensity_scale != 1.0:
+                model.light_diffuse[:] = np.clip(
+                    model.light_diffuse * spec.light_intensity_scale, 0.0, 2.0
+                )
+                model.light_ambient[:] = np.clip(
+                    model.light_ambient * spec.light_intensity_scale, 0.0, 2.0
+                )
             if spec.light_pos_jitter > 0:
                 jitter = rng.uniform(
                     -spec.light_pos_jitter,

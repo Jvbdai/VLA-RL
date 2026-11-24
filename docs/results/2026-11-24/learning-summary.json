@@ -1,0 +1,26 @@
+{
+  "episodes": 11,
+  "training_successes": 3,
+  "environment_steps": 9000,
+  "optimizer_updates": 8100,
+  "elapsed_s": 562.2968016,
+  "per_initialization": {
+    "200": {
+      "episodes": 3,
+      "successes": 0
+    },
+    "201": {
+      "episodes": 3,
+      "successes": 3
+    },
+    "202": {
+      "episodes": 3,
+      "successes": 0
+    },
+    "203": {
+      "episodes": 2,
+      "successes": 0
+    }
+  },
+  "note": "Training results with exploration; not held-out performance."
+}

@@ -275,10 +275,12 @@ class MultiTaskAndPerturbationTests(unittest.TestCase):
         base_env = DummyKitchenEnv()
         # A hinge-only perturbation must preserve even very small surface friction.
         base_env._env.env.sim.model.geom_friction[0, 0] = 0.001
+        base_env._env.env.sim.model.light_diffuse[0, 0] = 3.0
         wrapped = PerturbationWrapper(base_env, PRESETS["heldout_high_resistance"])
         wrapped.reset(seed=0)
         self.assertAlmostEqual(base_env._env.env.sim.model.dof_damping[1], 6.0)
         self.assertEqual(base_env._env.env.sim.model.geom_friction[0, 0], 0.001)
+        self.assertEqual(base_env._env.env.sim.model.light_diffuse[0, 0], 3.0)
         # Resetting a second time must restore baseline (2.0) before multiplying by 3.0 -> still 6.0, not 18.0
         wrapped.reset(seed=1)
         self.assertAlmostEqual(base_env._env.env.sim.model.dof_damping[1], 6.0)

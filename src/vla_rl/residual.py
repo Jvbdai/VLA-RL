@@ -1,5 +1,6 @@
 """Bounded residual control, with optional explicitly privileged door features."""
 
+import hashlib
 import gymnasium as gym
 import numpy as np
 
@@ -33,7 +34,7 @@ class ResidualEnv(gym.Wrapper):
     The reward provider implements reset(env), step(env, success, correction).
     """
 
-    def __init__(self, env, base, reward, *, scale=0.1, horizon=900, object_observation=None):
+    def __init__(self, env, base, reward, *, scale=0.1, horizon=900, object_observation=None, diagnostics=None):
         super().__init__(env)
         self.scale = np.broadcast_to(np.asarray(scale, np.float32), (6,)).copy()
         if not np.isfinite(self.scale).all() or np.any(self.scale < 0):
@@ -45,6 +46,7 @@ class ResidualEnv(gym.Wrapper):
         self.base, self.reward_provider, self.horizon = base, reward, horizon
         self.action_space = gym.spaces.Box(-1, 1, (6,), dtype=np.float32)
         self.object_observation = object_observation
+        self.diagnostics = diagnostics
         extra = 0 if object_observation is None else object_observation.size
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (29 + extra,), dtype=np.float32)
         self._done = True
@@ -71,7 +73,9 @@ class ResidualEnv(gym.Wrapper):
         raw, info = self.env.reset(seed=seed, options=options)
         policy_seed = (options or {}).get("policy_seed", info.get("episode_seed", seed))
         self.base.reset(policy_seed)
-        info = dict(info, policy_seed=policy_seed)
+        info = dict(info, policy_seed=policy_seed,
+                    initial_camera_sha256={k: hashlib.sha256(v.tobytes()).hexdigest()
+                                           for k, v in raw.get("pixels", {}).items()})
         self.reward_provider.reset(self.env)
         self._steps, self._done = 0, False
         return self._observation(raw), info
@@ -91,5 +95,8 @@ class ResidualEnv(gym.Wrapper):
         reward, terms = self.reward_provider.step(self.env, success, correction)
         self._done = terminated or truncated
         info = dict(info, sparse_reward=float(sparse), reward_terms=terms,
-                    base_action=base_action, executed_action=action.copy())
+                    base_action=base_action, executed_action=action.copy(),
+                    residual_saturation_fraction=float(np.mean(np.abs(residual) >= .99)),
+                    executed_correction_norm=float(np.linalg.norm(correction)),
+                    diagnostics=self.diagnostics(self.env) if self.diagnostics is not None else {})
         return self._observation(raw), float(reward), terminated, truncated, info

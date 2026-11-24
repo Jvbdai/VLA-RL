@@ -1,4 +1,4 @@
-"""CloseFridge nominal TD3 smoke run or paired zero-residual integration check."""
+"""Train bounded residual TD3 or run reward and zero-residual integration checks."""
 
 import argparse
 import hashlib
@@ -22,21 +22,22 @@ def main():
     parser.add_argument("--instruction", default=None, help="Override checkpoint dataset task label; changes the policy contract")
     parser.add_argument("--checkpoint", help="Cached snapshot path; Hub lookup is offline")
     parser.add_argument("--steps", type=int, default=9000)
-    parser.add_argument("--horizon", type=int, default=900)
+    parser.add_argument("--horizon", type=int, default=None, help="Defaults to task-specific registered horizon")
     parser.add_argument("--seed", type=int, default=0, help="TD3 learner seed (zero-check simulator seed)")
     parser.add_argument("--policy-seed", type=int, default=10000)
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--checkpoint-every", type=int, default=3000)
     parser.add_argument("--learning-starts", type=int, default=900)
     parser.add_argument("--gamma", type=float, default=0.995)
     parser.add_argument("--train-seeds", type=int, nargs="+", default=[200, 201, 202, 203])
-    parser.add_argument("--observation-mode", choices=["proprio", "fridge_ground_truth"], default="fridge_ground_truth")
+    parser.add_argument("--observation-mode", choices=["proprio", "fridge_ground_truth", "task_ground_truth"], default=None)
     parser.add_argument("--init-model", type=Path, help="Optional pretrained td3.zip to fine-tune from")
 
     parser.add_argument(
         "--task",
-        choices=("CloseFridge", "OpenFridge", "OpenCabinet", "PlaceDishInSink"),
+        choices=("CloseFridge", "OpenFridge", "OpenCabinet", "PlaceDishInSink", "SlideDishwasherRack", "RecycleBottlesByType"),
         default="CloseFridge",
     )
     parser.add_argument(
@@ -54,12 +55,20 @@ def main():
     )
 
     args = parser.parse_args()
+    from vla_rl.task_interfaces import TASK_HORIZONS, task_observation, task_diagnostics
+    args.horizon = args.horizon if args.horizon is not None else TASK_HORIZONS.get(args.task, 900)
+    if args.task in ("SlideDishwasherRack", "RecycleBottlesByType") and args.perturbation != "nominal":
+        parser.error("New task physics must be validated separately; only nominal is currently supported")
+    args.observation_mode = args.observation_mode or (
+        "task_ground_truth" if args.task in ("SlideDishwasherRack", "RecycleBottlesByType") else "fridge_ground_truth")
     args.output = args.output.resolve()
     args.project_root = args.project_root.resolve()
     if args.init_model is not None:
         args.init_model = args.init_model.resolve()
         if not args.init_model.exists():
             parser.error(f"--init-model not found: {args.init_model}")
+    if args.checkpoint_every < 1:
+        parser.error("checkpoint-every must be positive")
     if args.steps < 1 or args.horizon < 1 or not 0 <= args.scale <= 1 or args.learning_starts < 0:
         parser.error("steps/horizon must be positive; learning-starts nonnegative; scale in [0, 1]")
     if args.observation_mode == "fridge_ground_truth" and args.task not in ("CloseFridge", "OpenFridge"):
@@ -83,6 +92,8 @@ def main():
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
     # Keep generated compilation caches out of downloaded library checkouts.
     args.output.mkdir(parents=True, exist_ok=True)
+    if (args.output / "run_config.json").exists() or (args.output / "report.json").exists():
+        parser.error("Use a fresh output directory; this directory already contains a run")
     os.environ.setdefault("NUMBA_CACHE_DIR", str(args.output / "numba-cache"))
     import numpy as np
     import torch
@@ -152,9 +163,11 @@ def main():
             from vla_rl.provenance import provenance
             (args.output / "provenance.json").write_text(json.dumps(provenance(ROOT, checkpoint), indent=2), encoding="utf-8")
             base = FrozenSmolVLA(checkpoint, env, instruction=args.instruction or args.task)
-            object_obs = FridgeDoorObservation() if args.observation_mode == "fridge_ground_truth" else None
+            object_obs = task_observation(args.task, args.observation_mode)
+            from vla_rl.diagnostics import fridge_diagnostics
             wrapped = ResidualEnv(env, base, make_reward(args.task), scale=args.scale,
-                                  horizon=args.horizon, object_observation=object_obs)
+                                  horizon=args.horizon, object_observation=object_obs,
+                                  diagnostics=task_diagnostics(args.task))
             (args.output / "run_config.json").write_text(json.dumps(dict(vars(args),
                 observation_dim=wrapped.observation_space.shape[0], checkpoint=str(checkpoint)),
                 indent=2, default=str), encoding="utf-8")
@@ -270,9 +283,9 @@ def main():
                 class EpisodeLogWrapper(__import__("gymnasium").Wrapper):
                     def step(self, action):
                         obs, reward, done, trunc, info = self.env.step(action)
-                        return obs, reward, done, trunc, dict(info, door_openness=info["reward_terms"].get("door_openness", float("nan")))
+                        return obs, reward, done, trunc, dict(info, task_error=info["reward_terms"].get("task_error", info["reward_terms"].get("door_openness", info["reward_terms"].get("dish_to_sink_distance", float("nan")))))
                 monitored = Monitor(EpisodeLogWrapper(PolicySeedWrapper(wrapped)), str(args.output / "monitor.csv"),
-                                    info_keywords=("is_success", "door_openness"))
+                                    info_keywords=("is_success", "task_error"))
                 model = TD3("MlpPolicy", monitored,
                             learning_rate=args.lr,
                             buffer_size=100_000, learning_starts=args.learning_starts, batch_size=args.batch_size,
@@ -291,7 +304,11 @@ def main():
                         raise ValueError("Old model observation shape differs; train the new observation model from scratch")
                     model.policy.load_state_dict(pretrained.policy.state_dict())
                 actor_before = [p.detach().clone() for p in model.actor.parameters()]
-                model.learn(total_timesteps=args.steps)
+                from vla_rl.training_audit import TrainingAudit
+                from stable_baselines3.common.logger import configure
+                model.set_logger(configure(str(args.output / "learner"), ["stdout", "csv"]))
+                model.learn(total_timesteps=args.steps, log_interval=1,
+                            callback=TrainingAudit(args.output, args.checkpoint_every))
                 assert type(model.replay_buffer) is ReplayBuffer
                 assert model._n_updates > 0, "smoke run did not perform optimizer updates"
                 assert any(not torch.equal(a, b) for a, b in zip(actor_before, model.actor.parameters()))

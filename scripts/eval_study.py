@@ -48,7 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--task",
-        choices=("CloseFridge", "OpenFridge", "OpenCabinet", "PlaceDishInSink"),
+        choices=("CloseFridge", "OpenFridge", "OpenCabinet", "PlaceDishInSink", "SlideDishwasherRack", "RecycleBottlesByType"),
         default="CloseFridge",
     )
     parser.add_argument(
@@ -69,6 +69,9 @@ def main():
         choices=("base_vla", "residual_td3"),
         default="base_vla",
     )
+    parser.add_argument("--hinge-damping-scale", type=float, default=None)
+    parser.add_argument("--hinge-frictionloss-add", type=float, default=None)
+    parser.add_argument("--contact-friction-scale", type=float, default=None)
     parser.add_argument("--model-path", type=Path, help="Path to trained td3.zip checkpoint")
     parser.add_argument("--instruction", default=None, help="Override checkpoint dataset task label; changes the policy contract")
     parser.add_argument("--checkpoint", help="Cached SmolVLA snapshot path")
@@ -76,12 +79,27 @@ def main():
     parser.add_argument("--policy-seeds", type=int, nargs="+", default=[0], help="Independent policy RNG seeds, crossed with simulator seeds")
     parser.add_argument("--repeats", type=int, default=1, help="Identical-seed reruns to measure nondeterminism")
     parser.add_argument("--episodes-per-seed", type=int, default=1)
-    parser.add_argument("--horizon", type=int, default=900)
+    parser.add_argument("--horizon", type=int, default=None, help="Defaults to task-specific registered horizon")
     parser.add_argument("--scale", type=float, default=None)
-    parser.add_argument("--observation-mode", choices=["proprio", "fridge_ground_truth"], default=None)
+    parser.add_argument("--observation-mode", choices=["proprio", "fridge_ground_truth", "task_ground_truth"], default=None)
     parser.add_argument("--save-video", action="store_true", help="Save 3-camera rollout videos")
     parser.add_argument("--output", type=Path, default=ROOT / "runs" / "eval-study")
     args = parser.parse_args()
+    from vla_rl.task_interfaces import TASK_HORIZONS, task_observation, task_diagnostics
+    args.horizon = args.horizon if args.horizon is not None else TASK_HORIZONS.get(args.task, 900)
+    from vla_rl.perturbations import PerturbationSpec
+    physical_overrides = {k: getattr(args, k) for k in ("hinge_damping_scale", "hinge_frictionloss_add", "contact_friction_scale") if getattr(args, k) is not None}
+    custom_spec = None
+    if physical_overrides:
+        if args.task != "CloseFridge" or args.perturbation != "nominal":
+            parser.error("Explicit physics levels currently require CloseFridge and --perturbation nominal")
+        try:
+            custom_spec = PerturbationSpec(name="custom_physics", **physical_overrides)
+        except ValueError as error:
+            parser.error(str(error))
+        args.perturbation = "custom_physics"
+    if args.task in ("SlideDishwasherRack", "RecycleBottlesByType") and args.perturbation != "nominal":
+        parser.error("New task physics must be validated separately; only nominal is currently supported")
 
     if args.model_path is not None:
         args.model_path = args.model_path.resolve()
@@ -108,7 +126,7 @@ def main():
         elif args.scale is None or args.observation_mode is None:
             parser.error("Legacy checkpoint: explicitly supply --scale and --observation-mode proprio")
     args.scale = 0.1 if args.scale is None else args.scale
-    args.observation_mode = args.observation_mode or "fridge_ground_truth"
+    args.observation_mode = args.observation_mode or ("task_ground_truth" if args.task in ("SlideDishwasherRack", "RecycleBottlesByType") else "fridge_ground_truth")
     if args.repeats < 1 or min(args.seeds + args.policy_seeds) < 0:
         parser.error("repeats must be positive and seeds nonnegative")
     if args.horizon < 1 or args.episodes_per_seed < 1 or not 0 <= args.scale <= 1:
@@ -145,7 +163,7 @@ def main():
 
     base_env = SeededRoboCasaEnv(task=args.task, episode_length=args.horizon)
     env = (
-        PerturbationWrapper(base_env, PRESETS[args.perturbation])
+        PerturbationWrapper(base_env, custom_spec or PRESETS[args.perturbation])
         if args.perturbation != "nominal"
         else base_env
     )
@@ -160,9 +178,11 @@ def main():
         (args.output / "run_config.json").write_text(json.dumps({
             "arguments": vars(args), "provenance": provenance(ROOT, checkpoint)}, indent=2, default=str), encoding="utf-8")
         vla = FrozenSmolVLA(checkpoint, env, instruction=args.instruction or args.task)
+        from vla_rl.diagnostics import fridge_diagnostics, EpisodeDiagnostics
         wrapped = ResidualEnv(
             env, vla, make_reward(args.task), scale=args.scale, horizon=args.horizon,
-            object_observation=FridgeDoorObservation() if args.observation_mode == "fridge_ground_truth" else None,
+            object_observation=task_observation(args.task, args.observation_mode),
+            diagnostics=task_diagnostics(args.task),
         )
 
         # Hook to capture the 3 camera views side-by-side when --save-video is enabled
@@ -200,8 +220,11 @@ def main():
                 initial_qpos = env.unwrapped._env.env.sim.data.qpos.copy()
                 initial_qvel = env.unwrapped._env.env.sim.data.qvel.copy()
                 initial_model_hash = hashlib.sha256(env.unwrapped._env.env.sim.model.get_xml().encode()).hexdigest()
+                from vla_rl.model_identity import numeric_model_identity
+                initial_numeric_model = numeric_model_identity(env.unwrapped._env.env.sim.model)
                 initial_state_hash = hashlib.sha256(initial_qpos.tobytes() + initial_qvel.tobytes()).hexdigest()
                 initial_openness = wrapped.reward_provider.openness(env) if hasattr(wrapped.reward_provider, "openness") else None
+                diagnostic_summary = EpisodeDiagnostics()
                 total_reward = 0.0
                 total_progress = 0.0
                 steps = 0
@@ -214,6 +237,7 @@ def main():
                     else:
                         residual_action, _ = td3_model.predict(obs, deterministic=True)
                     obs, reward, terminated, truncated, info = wrapped.step(residual_action)
+                    diagnostic_summary.update(info)
                     total_reward += float(reward)
                     total_progress += float(info["reward_terms"]["progress"])
                     steps += 1
@@ -233,6 +257,8 @@ def main():
                 ep_record = {
                     "seed": ep_seed, "policy_seed": policy_seed, "repeat": repeat,
                     "initial_state_sha256": initial_state_hash, "initial_model_sha256": initial_model_hash,
+                    "initial_numeric_model": initial_numeric_model,
+                    "initial_camera_sha256": reset_info.get("initial_camera_sha256"),
                     "instruction": args.instruction or args.task,
                     "wall_time_s": time.perf_counter() - episode_start,
                     "completion_steps": steps if success else None,
@@ -242,9 +268,11 @@ def main():
                     "total_progress": round(total_progress, 4),
                     "initial_openness": initial_openness,
                     "final_openness": info["reward_terms"].get("door_openness"),
+                    "final_task_error": info["reward_terms"].get("task_error", info["reward_terms"].get("door_openness", info["reward_terms"].get("dish_to_sink_distance"))),
                     "terminated": bool(terminated), "truncated": bool(truncated),
                     "perturbation_parameters": reset_info.get("perturbation"),
                     "video": saved_video,
+                    "diagnostics": diagnostic_summary.summary(),
                 }
                 episodes.append(ep_record)
                 with (args.output / "episodes.jsonl").open("a", encoding="utf-8") as stream:
@@ -267,6 +295,7 @@ def main():
             "policy_seeds": args.policy_seeds, "repeats": args.repeats,
             "failures": sum(not e["success"] for e in episodes),
             "training_seeds": contract.get("train_seeds"),
+            "learner_seed": contract.get("seed"),
             "model_path": str(args.model_path) if args.model_path else None,
             "num_episodes": len(episodes),
             "success_rate": round(success_rate, 4),
